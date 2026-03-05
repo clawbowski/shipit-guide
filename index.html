@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ship It — Building LLM-Powered Search in Production</title>
+  <meta name="description" content="The architecture, patterns, and hard-won lessons for shipping AI search that actually works. From a senior engineer who built it at Dropbox scale." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --accent: #6c63ff;
+      --accent-light: #8b84ff;
+      --text: #e8e9f0;
+      --muted: #8b8fa8;
+      --green: #4ade80;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent-light); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* NAV */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 2rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(15, 17, 23, 0.95);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+    }
+    nav .logo { font-weight: 700; font-size: 1.1rem; color: var(--text); }
+    nav .logo span { color: var(--accent-light); }
+    nav .nav-cta {
+      background: var(--accent);
+      color: #fff;
+      padding: 0.5rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    nav .nav-cta:hover { background: var(--accent-light); text-decoration: none; }
+
+    /* HERO */
+    .hero {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 6rem 2rem 5rem;
+      text-align: center;
+    }
+    .hero .badge {
+      display: inline-block;
+      background: rgba(108, 99, 255, 0.15);
+      border: 1px solid rgba(108, 99, 255, 0.4);
+      color: var(--accent-light);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.9rem;
+      border-radius: 20px;
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 6vw, 3.6rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1.2rem;
+      letter-spacing: -0.02em;
+    }
+    .hero h1 span { color: var(--accent-light); }
+    .hero .subtitle {
+      font-size: 1.2rem;
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+    }
+
+    /* FORM */
+    .signup-form {
+      display: flex;
+      gap: 0.75rem;
+      max-width: 480px;
+      margin: 0 auto 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .signup-form input[type="email"] {
+      flex: 1;
+      min-width: 220px;
+      padding: 0.85rem 1.1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .signup-form input[type="email"]:focus { border-color: var(--accent); }
+    .signup-form input[type="email"]::placeholder { color: var(--muted); }
+    .signup-form button {
+      padding: 0.85rem 1.6rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .signup-form button:hover { background: var(--accent-light); }
+    .form-note { font-size: 0.82rem; color: var(--muted); }
+
+    /* SOCIAL PROOF */
+    .social-proof {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      padding: 2.5rem 2rem;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat .number { font-size: 1.8rem; font-weight: 800; color: var(--accent-light); }
+    .stat .label { font-size: 0.85rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* SECTION */
+    section { max-width: 760px; margin: 0 auto; padding: 5rem 2rem; }
+    section h2 {
+      font-size: 1.9rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      letter-spacing: -0.01em;
+    }
+    section h2 span { color: var(--accent-light); }
+    section .lead { color: var(--muted); font-size: 1.05rem; margin-bottom: 2.5rem; }
+
+    /* PAIN POINTS */
+    .pain-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.2rem;
+    }
+    .pain-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem;
+    }
+    .pain-card .emoji { font-size: 1.5rem; margin-bottom: 0.6rem; }
+    .pain-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .pain-card p { font-size: 0.9rem; color: var(--muted); }
+
+    /* WHAT YOU GET */
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .toc-item {
+      display: flex;
+      gap: 0.8rem;
+      align-items: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem;
+    }
+    .toc-num {
+      background: rgba(108, 99, 255, 0.15);
+      color: var(--accent-light);
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 5px;
+      flex-shrink: 0;
+      min-width: 2rem;
+      text-align: center;
+    }
+    .toc-item h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .toc-item p { font-size: 0.83rem; color: var(--muted); }
+
+    /* AUTHOR */
+    .author-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .author-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      flex-shrink: 0;
+    }
+    .author-info h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .author-info .title { font-size: 0.85rem; color: var(--accent-light); margin-bottom: 0.8rem; }
+    .author-info p { color: var(--muted); font-size: 0.95rem; }
+
+    /* PRICING */
+    .price-card {
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      padding: 2.5rem;
+      max-width: 420px;
+      margin: 0 auto;
+      text-align: center;
+      position: relative;
+    }
+    .price-card .best-value {
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.3rem 1rem;
+      border-radius: 20px;
+    }
+    .price-card .price { font-size: 3rem; font-weight: 800; margin: 1rem 0 0.25rem; }
+    .price-card .price .original {
+      font-size: 1.2rem;
+      color: var(--muted);
+      text-decoration: line-through;
+      font-weight: 400;
+      margin-right: 0.5rem;
+    }
+    .price-card .price-note { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+    .price-card ul {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 2rem;
+    }
+    .price-card ul li {
+      padding: 0.45rem 0;
+      font-size: 0.95rem;
+      display: flex;
+      gap: 0.6rem;
+    }
+    .price-card ul li::before { content: "✓"; color: var(--green); font-weight: 700; flex-shrink: 0; }
+    .price-card .buy-btn {
+      display: block;
+      background: var(--accent);
+      color: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      width: 100%;
+      text-align: center;
+      transition: background 0.2s;
+    }
+    .price-card .buy-btn:hover { background: var(--accent-light); text-decoration: none; }
+    .price-card .guarantee { font-size: 0.8rem; color: var(--muted); margin-top: 1rem; }
+
+    /* FAQ */
+    .faq-list { display: flex; flex-direction: column; gap: 1rem; }
+    .faq-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem 1.4rem;
+    }
+    .faq-item h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .faq-item p { color: var(--muted); font-size: 0.93rem; }
+
+    /* CTA BOTTOM */
+    .cta-bottom {
+      background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.03));
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 5rem 2rem;
+    }
+    .cta-bottom h2 { font-size: 2rem; font-weight: 800; margin-bottom: 1rem; }
+    .cta-bottom p { color: var(--muted); font-size: 1.05rem; margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto; }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      .hero { padding: 4rem 1.5rem 3rem; }
+      section { padding: 3rem 1.5rem; }
+      .author-card { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Ship <span>It</span></div>
+  <a href="#waitlist" class="nav-cta">Join Waitlist →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge">📖 Early Access — Launching 2026</div>
+  <h1>Building LLM-Powered Search<br/><span>in Production</span></h1>
+  <p class="subtitle">The architecture, patterns, and hard-won lessons for shipping AI search that actually works — from someone who built it at Dropbox scale.</p>
+  <form class="signup-form" id="waitlist" action="https://formspree.io/f/REPLACE_ME" method="POST">
+    <input type="email" name="email" placeholder="your@email.com" required />
+    <button type="submit">Join the Waitlist</button>
+  </form>
+  <p class="form-note">Free early access pricing for waitlist members. No spam, ever.</p>
+</div>
+
+<!-- SOCIAL PROOF STRIP -->
+<div class="social-proof">
+  <div class="stat">
+    <div class="number">20+</div>
+    <div class="label">Years shipping production systems</div>
+  </div>
+  <div class="stat">
+    <div class="number">3 yrs</div>
+    <div class="label">Building LLM search at Dropbox</div>
+  </div>
+  <div class="stat">
+    <div class="number">~80</div>
+    <div class="label">Production clusters migrated at Shopify</div>
+  </div>
+  <div class="stat">
+    <div class="number">DARPA</div>
+    <div class="label">Autonomous system research</div>
+  </div>
+</div>
+
+<!-- PROBLEM SECTION -->
+<section>
+  <h2>Your demo works.<br/><span>Production is a different story.</span></h2>
+  <p class="lead">You've got embeddings. You've got a vector DB. You've got vibes. What you don't have is a system that works reliably, stays within budget, and doesn't catch fire at 2am.</p>
+  <div class="pain-grid">
+    <div class="pain-card">
+      <div class="emoji">🔐</div>
+      <h3>Authorization is a nightmare</h3>
+      <p>Every data source has its own ACL model. You're writing bespoke auth logic everywhere and it's already inconsistent.</p>
+    </div>
+    <div class="pain-card">
+      <div class="emoji">🔗</div>
+      <h3>Every new data source requires rewrites</h3>
+      <p>Your architecture wasn't designed for heterogeneous data. Adding a new source means touching the whole pipeline.</p>
+    </div>
+    <div class="pain-card">
+      <div class="emoji">💸</div>
+      <h3>The billing surprises are real</h3>
+      <p>LLM API costs are unpredictable. You're not sure what's expensive, where to cache, or when to use smaller models.</p>
+    </div>
+    <div class="pain-card">
+      <div class="emoji">🔥</div>
+      <h3>On-call for AI is weird</h3>
+      <p>Traditional incident patterns don't apply. Debugging relevance failures, prompt regressions, and latency spikes requires a new playbook.</p>
+    </div>
+    <div class="pain-card">
+      <div class="emoji">📏</div>
+      <h3>You don't know what "good" looks like</h3>
+      <p>How do you measure relevance? What does a healthy search pipeline look like in your dashboards?</p>
+    </div>
+    <div class="pain-card">
+      <div class="emoji">🏗️</div>
+      <h3>The architecture decisions compound</h3>
+      <p>Early choices about query semantics, indexing strategy, and API design are hard to undo once you're at scale.</p>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT YOU GET -->
+<section style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); max-width: 100%;">
+  <div style="max-width: 760px; margin: 0 auto;">
+    <h2>What's <span>inside</span></h2>
+    <p class="lead">12 chapters of battle-tested architecture, patterns, and operational playbooks. No fluff. No toy examples.</p>
+    <div class="toc-grid">
+      <div class="toc-item"><div class="toc-num">01</div><div><h3>Why LLM Search Is Different</h3><p>The three failure modes: relevance, latency, cost</p></div></div>
+      <div class="toc-item"><div class="toc-num">02</div><div><h3>Data Source Architecture</h3><p>Abstraction layers so new sources don't require service changes</p></div></div>
+      <div class="toc-item"><div class="toc-num">03</div><div><h3>The Authorization Problem</h3><p>Reusable ACL patterns that scale vs. the ones that blow up</p></div></div>
+      <div class="toc-item"><div class="toc-num">04</div><div><h3>Query Semantics That Don't Suck</h3><p>Composable boolean query interfaces; avoiding bespoke filter traps</p></div></div>
+      <div class="toc-item"><div class="toc-num">05</div><div><h3>Retrieval Strategies</h3><p>Vector, BM25, hybrid — when to use each; re-ranking tradeoffs</p></div></div>
+      <div class="toc-item"><div class="toc-num">06</div><div><h3>LLM Integration Patterns</h3><p>RAG done right; prompt architecture; streaming without the mess</p></div></div>
+      <div class="toc-item"><div class="toc-num">07</div><div><h3>Observability for AI Search</h3><p>What to measure; relevance metrics; debugging retrieval failures</p></div></div>
+      <div class="toc-item"><div class="toc-num">08</div><div><h3>Cost Control</h3><p>The billing surprises; caching strategies; when to use smaller models</p></div></div>
+      <div class="toc-item"><div class="toc-num">09</div><div><h3>API Design for AI Products</h3><p>Versioning, docs, testability — from day one</p></div></div>
+      <div class="toc-item"><div class="toc-num">10</div><div><h3>On-Call for AI Services</h3><p>Incident patterns unique to LLM systems; runbooks that actually help</p></div></div>
+      <div class="toc-item"><div class="toc-num">11</div><div><h3>Testing Strategies</h3><p>Unit testing pipelines; eval sets; mock vs. live LLM tradeoffs</p></div></div>
+      <div class="toc-item"><div class="toc-num">12</div><div><h3>Scaling Up</h3><p>When your architecture needs to change; multi-tenancy; lessons from 0→1</p></div></div>
+    </div>
+    <div style="margin-top: 1.5rem; padding: 1rem 1.2rem; background: rgba(108,99,255,0.08); border: 1px solid rgba(108,99,255,0.25); border-radius: 8px; font-size: 0.9rem; color: var(--muted);">
+      <strong style="color: var(--text);">Also included:</strong> Reference architecture diagrams · Go + Python code templates · Vendor comparison matrix · "Production-Ready" checklist
+    </div>
+  </div>
+</section>
+
+<!-- AUTHOR -->
+<section>
+  <h2>Who wrote <span>this</span></h2>
+  <div class="author-card">
+    <div class="author-avatar">👨‍💻</div>
+    <div class="author-info">
+      <h3>Michael "Mikey" Boldt</h3>
+      <div class="title">Senior Infrastructure Engineer · Dropbox, Shopify, VMware, Pivotal</div>
+      <p>20+ years building production systems at the intersection of research and engineering. At Dropbox, I led search API architecture for Dash — an LLM-powered AI teammate product — designing the patterns for heterogeneous data, authorization, and composable query semantics that are the backbone of this guide. Previously owned global Elasticsearch infrastructure at Shopify, led open source platform work at VMware, and did DARPA/NASA applied research at SIFT.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section style="text-align: center;">
+  <h2>Early access <span>pricing</span></h2>
+  <p class="lead" style="margin-bottom: 2.5rem;">Waitlist members get the guide at launch price. Price goes up after launch.</p>
+  <div class="price-card">
+    <div class="best-value">⚡ Early Access</div>
+    <div class="price"><span class="original">$97</span>$49</div>
+    <div class="price-note">One-time payment · Lifetime updates</div>
+    <ul>
+      <li>Complete 80–120 page guide (PDF)</li>
+      <li>Go + Python code templates</li>
+      <li>Reference architecture diagrams</li>
+      <li>Vendor comparison matrix</li>
+      <li>"Production-Ready" checklist</li>
+      <li>All future updates included</li>
+    </ul>
+    <a href="#waitlist" class="buy-btn">Join Waitlist for Early Price →</a>
+    <p class="guarantee">🔒 30-day money-back guarantee. No questions asked.</p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section>
+  <h2>Common <span>questions</span></h2>
+  <div class="faq-list">
+    <div class="faq-item">
+      <h3>Who is this for?</h3>
+      <p>Backend and ML engineers building AI search products — especially if you're at a startup, moving from prototype to production, or inheriting a search system that wasn't designed to scale.</p>
+    </div>
+    <div class="faq-item">
+      <h3>What language/stack does it assume?</h3>
+      <p>Patterns are language-agnostic. Code examples are in Go and Python. Concepts apply regardless of your stack.</p>
+    </div>
+    <div class="faq-item">
+      <h3>Is this about a specific vector DB or LLM provider?</h3>
+      <p>No. The guide covers architectural patterns and decision frameworks. Vendor-specific examples are included but the patterns work across providers — we include a comparison matrix to help you choose.</p>
+    </div>
+    <div class="faq-item">
+      <h3>When does it ship?</h3>
+      <p>Targeting mid-2026. Waitlist members get notified first and locked in at early access pricing.</p>
+    </div>
+    <div class="faq-item">
+      <h3>What if it's not useful to me?</h3>
+      <p>30-day money-back guarantee. Email and you'll get a full refund, no questions asked.</p>
+    </div>
+  </div>
+</section>
+
+<!-- BOTTOM CTA -->
+<div class="cta-bottom">
+  <h2>Stop reinventing the wheel.</h2>
+  <p>Get the patterns that took years to learn, delivered in a weekend read.</p>
+  <form class="signup-form" action="https://formspree.io/f/REPLACE_ME" method="POST" style="margin: 0 auto 1rem;">
+    <input type="email" name="email" placeholder="your@email.com" required />
+    <button type="submit">Join the Waitlist</button>
+  </form>
+  <p style="font-size: 0.82rem; color: var(--muted);">Free early access pricing for waitlist members.</p>
+</div>
+
+<footer>
+  <p>© 2026 Michael W. Boldt · Built with zero VC funding and maximum opinions</p>
+</footer>
+
+</body>
+</html>
