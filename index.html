@@ -334,7 +334,7 @@
   <div class="badge">📖 Early Access — Launching 2026</div>
   <h1>Building LLM-Powered Search<br/><span>in Production</span></h1>
   <p class="subtitle">The architecture, patterns, and hard-won lessons for shipping AI search that actually works — from someone who built it at Dropbox scale.</p>
-  <form class="signup-form" id="waitlist" onsubmit="submitWaitlist(event, this)">
+  <form class="signup-form" id="waitlist" action="https://formspree.io/f/mpqyzrlr" method="POST">
     <input type="email" name="email" placeholder="your@email.com" required />
     <button type="submit">Join the Waitlist</button>
   </form>
@@ -489,7 +489,7 @@
 <div class="cta-bottom">
   <h2>Stop reinventing the wheel.</h2>
   <p>Get the patterns that took years to learn, delivered in a weekend read.</p>
-  <form class="signup-form" onsubmit="submitWaitlist(event, this)" style="margin: 0 auto 1rem;">
+  <form class="signup-form" action="https://formspree.io/f/mpqyzrlr" method="POST" style="margin: 0 auto 1rem;">
     <input type="email" name="email" placeholder="your@email.com" required />
     <button type="submit">Join the Waitlist</button>
   </form>
@@ -499,33 +499,5 @@
 <footer>
   <p>© 2026 Michael W. Boldt · Built with zero VC funding and maximum opinions</p>
 </footer>
-
-<script>
-async function submitWaitlist(e, form) {
-  e.preventDefault();
-  const btn = form.querySelector('button');
-  const email = form.querySelector('input[type=email]').value;
-  btn.disabled = true;
-  btn.textContent = 'Joining...';
-  try {
-    const t = ['REDACTED1', 'REDACTED2', 'REDACTED3'].join('');
-    const res = await fetch('https://api.github.com/repos/clawbowski/shipit-waitlist/dispatches', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + t, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_type: 'waitlist_signup', client_payload: { email } })
-    });
-    if (res.status === 204) {
-      btn.textContent = "You're on the list! ✓";
-      form.querySelector('input[type=email]').value = '';
-    } else {
-      throw new Error('Failed');
-    }
-  } catch(err) {
-    btn.disabled = false;
-    btn.textContent = 'Join the Waitlist';
-    alert('Something went wrong. Please try again.');
-  }
-}
-</script>
 </body>
 </html>
